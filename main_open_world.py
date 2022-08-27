@@ -18,11 +18,12 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import datasets
+from datasets.owdetr_datasets import register_owdetr_datasets
 import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
 from datasets.coco import make_coco_transforms
-from datasets.torchvision_datasets.open_world import OWDetection
+from datasets.torchvision_datasets.open_world import FOOWDetection, OWDetection
 from engine import evaluate, train_one_epoch, viz
 from models import build_model
 
@@ -157,6 +158,8 @@ def main(args):
 
     dataset_train, dataset_val = get_datasets(args)
     
+    print(f'first item: {dataset_train[0]}')
+ 
     if args.distributed:
         if args.cache_mode:
             sampler_train = samplers.NodeDistributedSampler(dataset_train)
@@ -341,6 +344,10 @@ def get_datasets(args):
         test_set = args.test_set
         dataset_train = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.train_set], transforms=make_coco_transforms(args.train_set))
         dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=make_coco_transforms(args.test_set))
+    elif args.dataset == 'owdetr':
+        register_owdetr_datasets()
+        dataset_train = FOOWDetection(args.train_set, transforms=make_coco_transforms("owdetr_train"))
+        dataset_val = FOOWDetection(args.test_set, transforms=make_coco_transforms("owdetr_test"))
     else:
         raise ValueError("Wrong dataset name")
 

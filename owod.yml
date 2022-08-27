@@ -1,0 +1,34 @@
+name: owdetr
+channels:
+  - conda-forge
+  - default
+
+dependencies:
+  # Base pytorch env
+  - python
+  - cudatoolkit=11.1
+  
+  # Detectron2 - not actually used but brings in the right versions of pytorch etc
+  - detectron2=0.6
+
+  # Notebook env
+  - ipykernel
+  - jupyterlab
+  - notebook
+
+  # Notebook tools
+  - pandas
+  - seaborn
+
+  # Cluster machine tools
+  - git
+  - vim
+
+  # Pip and deps: Stuff we can't get from conda
+  - pip
+  - pip:
+    # required for detectron2 visualization tools
+    - opencv-python==4.5.3.56
+    # Nice way to examine/slice/derive datasets and view detection results
+    - fiftyone
+    - einops
