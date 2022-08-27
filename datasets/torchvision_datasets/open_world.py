@@ -109,12 +109,12 @@ class OWDetection(VisionDataset):
                 valid_sets.append("test")
 
             # base_dir = DATASET_YEAR_DICT[year]['base_dir']
-            voc_root = self.root
+            voc_root = os.path.abspath(self.root)
             annotation_dir = os.path.join(voc_root, 'Annotations')
             image_dir = os.path.join(voc_root, 'JPEGImages')
 
             if not os.path.isdir(voc_root):
-                raise RuntimeError('Dataset not found or corrupted.' +
+                raise RuntimeError(f'Dataset not found or corrupted. {voc_root}' +
                                    ' You can use download=True to download it')
             file_names = self.extract_fns(image_set, voc_root)
             self.image_set.extend(file_names)
@@ -169,7 +169,7 @@ class OWDetection(VisionDataset):
         return target, instances
 
     def extract_fns(self, image_set, voc_root):
-        splits_dir = os.path.join(voc_root, 'ImageSets/Main')
+        splits_dir = os.path.join(voc_root, 'ImageSets')
         split_f = os.path.join(splits_dir, image_set.rstrip('\n') + '.txt')
         with open(os.path.join(split_f), "r") as f:
             file_names = [x.strip() for x in f.readlines()]
