@@ -1,5 +1,6 @@
 # partly taken from https://github.com/pytorch/vision/blob/master/torchvision/datasets/voc.py
 import functools
+from unicodedata import category
 import torch
 
 import os
@@ -9,11 +10,14 @@ import logging
 import copy
 from torchvision.datasets import VisionDataset
 import itertools
+import fiftyone as fo
 
 import numpy as np
 import xml.etree.ElementTree as ET
 from PIL import Image
 from torchvision.datasets.utils import download_url, check_integrity, verify_str_arg
+
+from datasets.owdetr_datasets import ALL_CLASS_NAMES, get_fiftyone_dataset
 
 #OWOD splits
 VOC_CLASS_NAMES_COCOFIED = [
@@ -275,3 +279,89 @@ def download_extract(url, root, filename, md5):
     download_url(url, root, filename, md5)
     with tarfile.open(os.path.join(root, filename), "r") as tar:
         tar.extractall(path=root)
+
+
+def box_area(bbox: list[float], width: int, height: int) -> float:
+        return (bbox[2] * width) * (bbox[3] * height)
+
+def abs_box(bbox: list[float], width: int, height: int) -> list[float]:
+    x = bbox[0] * width
+    y = bbox[1] * height
+    x2 = x + (bbox[2] * width)
+    y2 = y + (bbox[3] * height)
+    return [x,y,x2,y2]
+
+class FOOWDetection(VisionDataset):
+    
+    def __init__(self,
+                 dataset_name='train',
+                 transform=None,
+                 target_transform=None,
+                 transforms=None
+                ):
+        super(FOOWDetection, self).__init__(dataset_name, transforms, transform, target_transform)
+
+        self.CLASS_NAMES = ALL_CLASS_NAMES + ["unknown"]
+
+        self.dataset = get_fiftyone_dataset(dataset_name)
+        self.dataset_ids = self.dataset.values("id")
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (image, target) where target is a dictionary of the XML tree.
+        
+        image_set = self.transforms[0]
+        img = Image.open(self.images[index]).convert('RGB')
+        target, instances = self.load_instances(self.imgids[index])
+        if 'train' in image_set:
+            instances = self.remove_prev_class_and_unk_instances(instances)
+        elif 'test' in image_set:
+            instances = self.label_known_class_and_unknown(instances)
+        elif 'ft' in image_set:
+            instances = self.remove_unknown_instances(instances)
+
+        w, h = map(target['annotation']['size'].get, ['width', 'height'])
+        target = dict(
+            image_id=torch.tensor([self.imgids[index]], dtype=torch.int64),
+            labels=torch.tensor([i['category_id'] for i in instances], dtype=torch.int64),
+            area=torch.tensor([i['area'] for i in instances], dtype=torch.float32),
+            boxes=torch.as_tensor([i['bbox'] for i in instances], dtype=torch.float32),
+            orig_size=torch.as_tensor([int(h), int(w)]),
+            size=torch.as_tensor([int(h), int(w)]),
+            iscrowd=torch.zeros(len(instances), dtype=torch.uint8)
+        )
+
+        if self.transforms[-1] is not None:
+            img, target = self.transforms[-1](img, target)
+        """
+        if index >= len(self.dataset_ids):
+            return None
+        
+        data: fo.Sample = self.dataset[self.dataset_ids[index]]
+
+        img = Image.open(data.filepath).convert('RGB')
+
+        width=data.metadata.width
+        height=data.metadata.height
+
+
+        target = dict(
+            image_id=torch.tensor([index], dtype=torch.int64),
+            labels=torch.tensor([ALL_CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
+            area=torch.tensor([ box_area(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
+            boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
+            orig_size=torch.as_tensor([int(height), int(width)]),
+            size=torch.as_tensor([int(height), int(width)]),
+            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8)
+        )
+        
+        if self.transforms[-1] is not None:
+            img, target = self.transforms[-1](img, target)
+        return img, target
+
+    def __len__(self):
+        return len(self.dataset_ids)
