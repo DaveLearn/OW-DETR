@@ -15,6 +15,7 @@ Mostly copy-paste from torchvision references.
 import os
 import subprocess
 import time
+from packaging import version
 from collections import defaultdict, deque
 import datetime
 import pickle
@@ -27,7 +28,7 @@ from torch import Tensor
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
-if float(torchvision.__version__[:3]) < 0.5:
+if version.parse(torchvision.__version__) < version.parse('0.7'):
     import math
     from torchvision.ops.misc import _NewEmptyTensorOp
     def _check_size_scale_factor(dim, size, scale_factor):
@@ -487,7 +488,7 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     This will eventually be supported natively by PyTorch, and this
     class can go away.
     """
-    if float(torchvision.__version__[:3]) < 0.7:
+    if version.parse(torchvision.__version__) < version.parse('0.7'):
         if input.numel() > 0:
             return torch.nn.functional.interpolate(
                 input, size, scale_factor, mode, align_corners
