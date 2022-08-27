@@ -127,3 +127,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+models/dino_resnet50_pretrain.pth
