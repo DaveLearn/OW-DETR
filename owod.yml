@@ -10,7 +10,8 @@ dependencies:
   
   # Detectron2 - not actually used but brings in the right versions of pytorch etc
   - detectron2=0.6
-
+  - torchvision=0.10.0
+  - pytorch=1.9.1
   # Notebook env
   - ipykernel
   - jupyterlab
