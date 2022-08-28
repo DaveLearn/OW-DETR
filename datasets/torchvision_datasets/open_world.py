@@ -346,7 +346,7 @@ class FOOWDetection(VisionDataset):
 
         target = dict(
             image_id=torch.tensor([index], dtype=torch.int64),
-            labels=torch.tensor([ALL_CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
+            labels=torch.tensor([self.CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
             area=torch.tensor([ box_area(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
             boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
             orig_size=torch.as_tensor([int(height), int(width)]),
