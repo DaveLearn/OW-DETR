@@ -238,6 +238,7 @@ class MetricLogger(object):
         space_fmt = ':' + str(len(str(len(iterable)))) + 'd'
         if torch.cuda.is_available():
             log_msg = self.delimiter.join([
+                '{now} - ',
                 header,
                 '[{0' + space_fmt + '}/{1}]',
                 'eta: {eta}',
@@ -248,6 +249,7 @@ class MetricLogger(object):
             ])
         else:
             log_msg = self.delimiter.join([
+                '{now} - ',
                 header,
                 '[{0' + space_fmt + '}/{1}]',
                 'eta: {eta}',
@@ -266,20 +268,22 @@ class MetricLogger(object):
                 if torch.cuda.is_available():
                     print(log_msg.format(
                         i, len(iterable), eta=eta_string,
+                        now=datetime.datetime.now(),
                         meters=str(self),
                         time=str(iter_time), data=str(data_time),
                         memory=torch.cuda.max_memory_allocated() / MB))
                 else:
                     print(log_msg.format(
                         i, len(iterable), eta=eta_string,
+                        now=datetime.datetime.now(),
                         meters=str(self),
                         time=str(iter_time), data=str(data_time)))
             i += 1
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('{} Total time: {} ({:.4f} s / it)'.format(
-            header, total_time_str, total_time / len(iterable)))
+        print('[{}] {} Total time: {} ({:.4f} s / it)'.format(
+            datetime.datetime.now(), header, total_time_str, total_time / len(iterable)))
 
 
 def get_sha():
