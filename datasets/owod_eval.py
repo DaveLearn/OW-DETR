@@ -7,6 +7,8 @@ from typing import Any, Union, cast
 import numpy as np
 from collections import defaultdict
 import torch
+import json
+import os
 
 from datasets.torchvision_datasets.open_world import FOOWDetection, OWDatasetDict, OWDetection
 from util.misc import all_gather
@@ -59,6 +61,7 @@ class OWODEvaluator():
             self.total_num_class =  args.num_classes
             self.unknown_class_index = self.total_num_class - 1
             self.num_seen_classes = self.prev_intro_cls + self.curr_intro_cls
+            self.output_dir = args.output_dir
 
     def update(self, predictions):
         for img_id, pred in predictions.items():
@@ -278,6 +281,10 @@ class OWODEvaluator():
         self._logger.info(f"Result summary : {self.summary}")
         print(f"Result Summary: {self.summary}")
 
+        if self.output_dir is not None: 
+            dump_file = os.path.join(self.output_dir, "results.json")
+            with open(dump_file, "w") as fd:
+                json.dump(self.summary, fd, indent=4 ) 
 
 ##############################################################################
 #
@@ -531,7 +538,6 @@ def voc_eval(detlines, recs, classname, ovthresh=0.5, use_07_metric=False):
 
         if ovmax > ovthresh:
             is_unk[d] = 1.0
-            print(f"**fp unknown: {image_ids[d]} BB: {bb} BBGT: {BBGT[jmax]}")
 
     is_unk_sum = np.sum(is_unk)
     # OSE = is_unk / n_unk
