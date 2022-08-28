@@ -11,7 +11,7 @@ import json
 import os
 
 from datasets.torchvision_datasets.open_world import FOOWDetection, OWDatasetDict, OWDetection
-from util.misc import all_gather
+from util.misc import all_gather, get_sha
 
 class OWODEvaluator():
     """
@@ -257,6 +257,7 @@ class OWODEvaluator():
 
         ret = {}
         # mAP = {iou: np.mean(x) for iou, x in aps.items()}
+        ret["git-sha"] = get_sha()
         ret["AP50-Known"] = np.mean(aps[50][0:self.num_seen_classes])
         ret["WI"] = { iou: widx[50] for iou, widx in wi.items() }
         ret["ULR-UDR"] = ulr
