@@ -1,5 +1,8 @@
 # partly taken from https://github.com/pytorch/vision/blob/master/torchvision/datasets/voc.py
+
 import functools
+from typing import Any, Union
+from typing_extensions import TypedDict
 from unicodedata import category
 import torch
 
@@ -61,6 +64,26 @@ UNK_CLASS = ["unknown"]
 
 VOC_COCO_CLASS_NAMES = tuple(itertools.chain(VOC_CLASS_NAMES, T2_CLASS_NAMES, T3_CLASS_NAMES, T4_CLASS_NAMES, UNK_CLASS))
 print(VOC_COCO_CLASS_NAMES)
+
+class OWDatasetDict(TypedDict):
+    """
+            image_id=torch.tensor([self.imgids[index]], dtype=torch.int64),
+            labels=torch.tensor([i['category_id'] for i in instances], dtype=torch.int64),
+            area=torch.tensor([i['area'] for i in instances], dtype=torch.float32),
+            boxes=torch.as_tensor([i['bbox'] for i in instances], dtype=torch.float32),
+            orig_size=torch.as_tensor([int(h), int(w)]),
+            size=torch.as_tensor([int(h), int(w)]),
+            iscrowd=torch.zeros(len(instances), dtype=torch.uint8)
+    """
+    image_id: torch.LongTensor
+    labels: torch.LongTensor
+    area: torch.FloatTensor
+    boxes: torch.FloatTensor
+    orig_size: torch.IntTensor
+    size: torch.IntTensor
+    iscrowd: torch.ShortTensor
+
+
 
 class OWDetection(VisionDataset):
     """`OWOD in Pascal VOC format <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Detection Dataset.
@@ -216,16 +239,9 @@ class OWDetection(VisionDataset):
                 annotation["category_id"] = total_num_class - 1
         return entry
 
-    def __getitem__(self, index):
-        """
-        Args:
-            index (int): Index
-
-        Returns:
-            tuple: (image, target) where target is a dictionary of the XML tree.
-        """
+    def get_raw(self, index) -> tuple[str, OWDatasetDict]:
+        
         image_set = self.transforms[0]
-        img = Image.open(self.images[index]).convert('RGB')
         target, instances = self.load_instances(self.imgids[index])
         if 'train' in image_set:
             instances = self.remove_prev_class_and_unk_instances(instances)
@@ -244,6 +260,19 @@ class OWDetection(VisionDataset):
             size=torch.as_tensor([int(h), int(w)]),
             iscrowd=torch.zeros(len(instances), dtype=torch.uint8)
         )
+
+        return self.images[index], target
+
+    def __getitem__(self, index) -> tuple[Union[Image.Image, Any], OWDatasetDict]:
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (image, target) where target is a dictionary of the XML tree.
+        """
+        img_path, target = self.get_raw(index)
+        img = Image.open(img_path).convert('RGB')
 
         if self.transforms[-1] is not None:
             img, target = self.transforms[-1](img, target)
@@ -306,7 +335,28 @@ class FOOWDetection(VisionDataset):
         self.dataset = get_fiftyone_dataset(dataset_name)
         self.dataset_ids = self.dataset.values("id")
 
-    def __getitem__(self, index):
+    def get_raw(self, index) -> tuple[str, OWDatasetDict]:
+        if index >= len(self.dataset_ids):
+            return None
+        
+        data: fo.Sample = self.dataset[self.dataset_ids[index]]
+
+        width=data.metadata.width
+        height=data.metadata.height
+
+        target = dict(
+            image_id=torch.tensor([index], dtype=torch.int64),
+            labels=torch.tensor([ALL_CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
+            area=torch.tensor([ box_area(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
+            boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
+            orig_size=torch.as_tensor([int(height), int(width)]),
+            size=torch.as_tensor([int(height), int(width)]),
+            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8)
+        )
+
+        return data.filepath, target
+
+    def __getitem__(self, index) -> tuple[Union[Image.Image, Any], OWDatasetDict]:
         """
         Args:
             index (int): Index
@@ -341,23 +391,8 @@ class FOOWDetection(VisionDataset):
         if index >= len(self.dataset_ids):
             return None
         
-        data: fo.Sample = self.dataset[self.dataset_ids[index]]
-
-        img = Image.open(data.filepath).convert('RGB')
-
-        width=data.metadata.width
-        height=data.metadata.height
-
-
-        target = dict(
-            image_id=torch.tensor([index], dtype=torch.int64),
-            labels=torch.tensor([ALL_CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
-            area=torch.tensor([ box_area(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
-            boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
-            orig_size=torch.as_tensor([int(height), int(width)]),
-            size=torch.as_tensor([int(height), int(width)]),
-            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8)
-        )
+        img_path, target = self.get_raw(index)
+        img = Image.open(img_path).convert('RGB')
         
         if self.transforms[-1] is not None:
             img, target = self.transforms[-1](img, target)
