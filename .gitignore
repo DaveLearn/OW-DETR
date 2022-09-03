@@ -132,3 +132,4 @@ data/OWDETR/VOC2007/Annotations
 data/OWDETR/VOC2007/JPEGImages
 exps/OWDETR_*
 
+exps
