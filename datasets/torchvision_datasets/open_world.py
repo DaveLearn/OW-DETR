@@ -318,7 +318,7 @@ def abs_box(bbox: list[float], width: int, height: int) -> list[float]:
     y = bbox[1] * height
     x2 = x + (bbox[2] * width)
     y2 = y + (bbox[3] * height)
-    return [x,y,x2,y2]
+    return [round(i) for i in [x,y,x2,y2]]
 
 class FOOWDetection(VisionDataset):
     
@@ -351,7 +351,8 @@ class FOOWDetection(VisionDataset):
             boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
             orig_size=torch.as_tensor([int(height), int(width)]),
             size=torch.as_tensor([int(height), int(width)]),
-            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8)
+            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8),
+            coco_id=data.coco_id
         )
 
         return data.filepath, target

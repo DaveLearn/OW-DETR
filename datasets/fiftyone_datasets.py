@@ -13,12 +13,19 @@ fo.config.dataset_zoo_dir =  os.path.abspath(os.path.join(os.path.dirname(__file
 # %%
 def get_or_create_zoo_dataset(dataset_name: str, zoo_name: str, split: str):
     if not fo.dataset_exists(dataset_name):
-        dataset=foz.load_zoo_dataset(zoo_name, split=split, dataset_name=dataset_name)
+        dataset=foz.load_zoo_dataset(zoo_name, split=split, dataset_name=dataset_name, include_id=True)
         dataset.compute_metadata()
+        # when including id's we get a different field schema
+        if not dataset.has_sample_field('ground_truth') and dataset.has_sample_field("detections"):
+            dataset.rename_sample_field("detections", "ground_truth")
         dataset.persistent=True
         return dataset
     else:
-       return fo.load_dataset(dataset_name)
+        dataset = fo.load_dataset(dataset_name)
+        if not dataset.has_sample_field('ground_truth') and dataset.has_sample_field("detections"):
+            dataset.rename_sample_field("detections", "ground_truth")
+        return dataset
+
 
 def get_voc_2007_val():
     return get_or_create_zoo_dataset("voc-2007-val", "voc-2007", "validation") 

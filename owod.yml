@@ -31,5 +31,5 @@ dependencies:
     # required for detectron2 visualization tools
     - opencv-python==4.5.3.56
     # Nice way to examine/slice/derive datasets and view detection results
-    - fiftyone
+    - fiftyone==0.15.1
     - einops

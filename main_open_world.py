@@ -305,7 +305,7 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        if args.dataset in ['owod'] and epoch % args.eval_every == 0 and epoch > 0:
+        if args.dataset in ['owod','owdetr'] and epoch % args.eval_every == 0 and epoch > 0:
             test_stats, coco_evaluator = evaluate(
                 model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir, args
             )
@@ -321,7 +321,7 @@ def main(args):
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-            if args.dataset in ['owod'] and epoch % args.eval_every == 0 and epoch > 0:
+            if args.dataset in ['owod', 'owdetr'] and epoch % args.eval_every == 0 and epoch > 0:
                 # for evaluation logs
                 if coco_evaluator is not None:
                     (output_dir / 'eval').mkdir(exist_ok=True)

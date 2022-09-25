@@ -3,8 +3,8 @@
 # %%
 from typing import Callable
 from .fiftyone_datasets import get_coco_2017_train, get_coco_2017_val, known_label_subset, label_subset, random_sample, class_minimum_sample
-from fiftyone.utils.random import random_split
-#import fiftyone.utils.splits as fous
+#from fiftyone.utils.random import random_split
+from fiftyone.utils.splits import random_split
 import fiftyone as fo
 
 #####
