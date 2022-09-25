@@ -352,7 +352,7 @@ class FOOWDetection(VisionDataset):
             orig_size=torch.as_tensor([int(height), int(width)]),
             size=torch.as_tensor([int(height), int(width)]),
             iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8),
-            coco_id=data.coco_id
+            coco_id=torch.as_tensor([data.coco_id], dtype=torch.int64)
         )
 
         return data.filepath, target
