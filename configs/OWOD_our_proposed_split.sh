@@ -4,6 +4,7 @@ set -x
 
 EXP_DIR=exps/OWDETR_t1
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
@@ -17,6 +18,7 @@ exit 0
 
 EXP_DIR=exps/OWDETR_t2
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
@@ -28,6 +30,7 @@ python -u main_open_world.py \
 
 EXP_DIR=exps/OWDETR_t2_ft
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
@@ -39,6 +42,7 @@ python -u main_open_world.py \
 
 EXP_DIR=exps/OWDETR_t3
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
@@ -50,7 +54,8 @@ python -u main_open_world.py \
 
 EXP_DIR=exps/OWDETR_t3_ft
 PY_ARGS=${@:1}  2>&1 | tee -a ${EXP_DIR}/run_log.txt
- 
+mkdir -p ${EXP_DIR}
+
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
     --PREV_INTRODUCED_CLS 40 --CUR_INTRODUCED_CLS 20 --data_root './data/OWDETR' --train_set 't3_ft' --test_set 'test' --num_classes 81 \
@@ -61,6 +66,7 @@ python -u main_open_world.py \
 
 EXP_DIR=exps/OWDETR_t4
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
@@ -72,6 +78,7 @@ python -u main_open_world.py \
 
 EXP_DIR=exps/OWDETR_t4_ft
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owod --num_queries 100 --eval_every 5 \
