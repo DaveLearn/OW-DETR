@@ -4,6 +4,7 @@ set -x
 
 EXP_DIR=exps/OWDETR_t1
 PY_ARGS=${@:1}
+mkdir -p ${EXP_DIR}
 
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owdetr --num_queries 100 --eval_every 5 \
