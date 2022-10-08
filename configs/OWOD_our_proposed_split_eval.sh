@@ -10,7 +10,7 @@ python -u main_open_world.py \
     --PREV_INTRODUCED_CLS 0 --CUR_INTRODUCED_CLS 19 --data_root './data/OWDETR' --train_set 't1_train' --test_set 'test' --num_classes 81 \
     --unmatched_boxes --epochs 45 --top_unk 5 --featdim 1024 --NC_branch --nc_loss_coef 0.1 --nc_epoch 9 \
     --backbone 'dino_resnet50' \
-    --resume 'exps/OWDETR_t1/checkpoint0049.pth' --eval \
+    --resume 'exps/OWDETR_t1/checkpoint0044.pth' --eval \
     ${PY_ARGS}  2>&1 | tee -a ${EXP_DIR}/eval_log.txt
 
 echo "eval complete"
