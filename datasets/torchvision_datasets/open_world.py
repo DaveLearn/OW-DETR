@@ -13,14 +13,14 @@ import logging
 import copy
 from torchvision.datasets import VisionDataset
 import itertools
-import fiftyone as fo
+#import fiftyone as fo
 
 import numpy as np
 import xml.etree.ElementTree as ET
 from PIL import Image
 from torchvision.datasets.utils import download_url, check_integrity, verify_str_arg
 
-from datasets.owdetr_datasets import ALL_CLASS_NAMES, get_fiftyone_dataset
+# from datasets.owdetr_datasets import ALL_CLASS_NAMES, get_fiftyone_dataset
 
 #OWOD splits
 VOC_CLASS_NAMES_COCOFIED = [

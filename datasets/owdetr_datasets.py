@@ -4,8 +4,8 @@
 from typing import Callable
 from .fiftyone_datasets import get_coco_2017_train, get_coco_2017_val, known_label_subset, label_subset, random_sample, class_minimum_sample
 #from fiftyone.utils.random import random_split
-from fiftyone.utils.splits import random_split
-import fiftyone as fo
+#from fiftyone.utils.splits import random_split
+#import fiftyone as fo
 
 #####
 # Improved dataset and class mappings as proposed by OW-DETR paper
