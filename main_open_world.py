@@ -23,7 +23,7 @@ import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
 from datasets.coco import make_coco_transforms
-from datasets.torchvision_datasets.open_world import FOOWDetection, OWDetection
+from datasets.torchvision_datasets.open_world import JSONOWDetection, OWDetection
 from engine import evaluate, train_one_epoch, viz
 from models import build_model
 
@@ -347,8 +347,8 @@ def get_datasets(args):
     elif args.dataset == 'owdetr':
         from datasets.owdetr_datasets import register_owdetr_datasets
         register_owdetr_datasets()
-        dataset_train = FOOWDetection(args.train_set, transforms=make_coco_transforms("owdetr_train"))
-        dataset_val = FOOWDetection(args.test_set, transforms=make_coco_transforms("owdetr_test"))
+        dataset_train = JSONOWDetection(args.train_set, transforms=make_coco_transforms("owdetr_train"))
+        dataset_val = JSONOWDetection(args.test_set, transforms=make_coco_transforms("owdetr_test"))
     else:
         raise ValueError("Wrong dataset name")
 

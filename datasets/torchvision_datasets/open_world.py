@@ -4,6 +4,7 @@ import functools
 from typing import Any, Union
 from typing_extensions import TypedDict
 from unicodedata import category
+from datasets.utils.dataset_ops import load_dataset_from_disk
 import torch
 
 import os
@@ -13,14 +14,14 @@ import logging
 import copy
 from torchvision.datasets import VisionDataset
 import itertools
-#import fiftyone as fo
 
 import numpy as np
 import xml.etree.ElementTree as ET
 from PIL import Image
 from torchvision.datasets.utils import download_url, check_integrity, verify_str_arg
+from ..utils.dataset_types import DetectronDict, DetectronAnnotationDict, DetectronJsonDataset
 
-# from datasets.owdetr_datasets import ALL_CLASS_NAMES, get_fiftyone_dataset
+
 
 #OWOD splits
 VOC_CLASS_NAMES_COCOFIED = [
@@ -90,7 +91,7 @@ class OWDetection(VisionDataset):
 
     Args:
         root (string): Root directory of the VOC Dataset.
-        year (string, optional): The dataset year, supports years 2007 to 2012.
+        year (list[string], optional): The dataset year, supports years 2007 to 2012.
         image_set (string, optional): Select the image_set to use, ``train``, ``trainval`` or ``val``
         download (bool, optional): If true, downloads the dataset from the internet and
             puts it in root directory. If dataset is already downloaded, it is not
@@ -107,8 +108,8 @@ class OWDetection(VisionDataset):
     def __init__(self,
                  args,
                  root,
-                 years='2012',
-                 image_sets='train',
+                 years=['2012'],
+                 image_sets=['train'],
                  transform=None,
                  target_transform=None,
                  transforms=None,
@@ -239,17 +240,23 @@ class OWDetection(VisionDataset):
                 annotation["category_id"] = total_num_class - 1
         return entry
 
-    def get_raw(self, index) -> tuple[str, OWDatasetDict]:
-        
+    def filter_instances(self, instances):
         image_set = self.transforms[0]
-        target, instances = self.load_instances(self.imgids[index])
-        if 'train' in image_set:
-            instances = self.remove_prev_class_and_unk_instances(instances)
-        elif 'test' in image_set:
-            instances = self.label_known_class_and_unknown(instances)
-        elif 'ft' in image_set:
-            instances = self.remove_unknown_instances(instances)
 
+        if 'train' in image_set:
+            return self.remove_prev_class_and_unk_instances(instances)
+        elif 'test' in image_set:
+            return self.label_known_class_and_unknown(instances)
+        elif 'ft' in image_set:
+            return self.remove_unknown_instances(instances)
+        
+        raise RuntimeError(f"Couldn't filter dataset, unknown type: {image_set}")
+
+
+    def get_raw(self, index) -> tuple[str, OWDatasetDict]:
+        target, instances = self.load_instances(self.imgids[index])
+        instances = self.filter_instances(instances)
+        
         w, h = map(target['annotation']['size'].get, ['width', 'height'])
         target = dict(
             image_id=torch.tensor([self.imgids[index]], dtype=torch.int64),
@@ -262,6 +269,31 @@ class OWDetection(VisionDataset):
         )
 
         return self.images[index], target
+
+
+    def get_detectron(self, index) -> DetectronDict:
+        target, instances = self.load_instances(self.imgids[index])
+        instances = self.filter_instances(instances)
+        
+        w, h = map(target['annotation']['size'].get, ['width', 'height'])
+        output: DetectronDict = {
+                'image_id': str(self.imgids[index]),
+                'file_name': self.images[index],
+                'width': int(w),
+                'height': int(h),
+                'annotations': [
+                    {
+                        'category_id': i['category_id'],
+                        'bbox_mode': 0, #XYXY_ABS
+                        'bbox': [float(coord) for coord in i['bbox']]
+                    }
+                    for i in instances
+                ]
+            }
+
+        return output
+
+
 
     def __getitem__(self, index) -> tuple[Union[Image.Image, Any], OWDatasetDict]:
         """
@@ -320,42 +352,49 @@ def abs_box(bbox: list[float], width: int, height: int) -> list[float]:
     y2 = y + (bbox[3] * height)
     return [round(i) for i in [x,y,x2,y2]]
 
-class FOOWDetection(VisionDataset):
+class JSONOWDetection(VisionDataset):
     
     def __init__(self,
+                 root,
                  dataset_name='train',
                  transform=None,
                  target_transform=None,
                  transforms=None
                 ):
-        super(FOOWDetection, self).__init__(dataset_name, transforms, transform, target_transform)
+        super(JSONOWDetection, self).__init__(root, transforms, transform, target_transform)
 
-        self.CLASS_NAMES = ALL_CLASS_NAMES + ["unknown"]
+        self.dataset_name = dataset_name
+        db_root = os.path.abspath(self.root)
+        self.dataset_filename = os.path.join(db_root, f"{dataset_name}.json")
+        
+        self.jsondataset = load_dataset_from_disk(self.dataset_filename)
+        self.data_dicts = self.jsondataset["dataset"]
 
-        self.dataset = get_fiftyone_dataset(dataset_name)
-        self.dataset_ids = self.dataset.values("id")
+        self.CLASS_NAMES = VOC_COCO_CLASS_NAMES
+
+
 
     def get_raw(self, index) -> tuple[str, OWDatasetDict]:
-        if index >= len(self.dataset_ids):
+        if index >= len(self.data_dicts):
             return None
         
-        data: fo.Sample = self.dataset[self.dataset_ids[index]]
+        data: DetectronDict = self.data_dicts[index]
 
-        width=data.metadata.width
-        height=data.metadata.height
+        width=data['width']
+        height=data['height']
 
         target = dict(
-            image_id=torch.tensor([index], dtype=torch.int64),
-            labels=torch.tensor([self.CLASS_NAMES.index(obj.label) for obj in data.ground_truth.detections], dtype=torch.int64),
-            area=torch.tensor([ box_area(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
-            boxes=torch.tensor([ abs_box(obj.bounding_box, width, height) for obj in data.ground_truth.detections], dtype=torch.float32),
+            image_id=torch.tensor([int(data["image_id"])], dtype=torch.int64),
+            labels=torch.tensor([i["category_id"] for i in data["annotations"]], dtype=torch.int64),
+            boxes=torch.as_tensor([i['bbox'] for i in data["annotations"]], dtype=torch.float32),
+            area=torch.as_tensor([(i['bbox'][2] - i['bbox'][0]) * (i['bbox'][3] - i['bbox'][1]) for i in data["annotations"]], dtype=torch.float32),
             orig_size=torch.as_tensor([int(height), int(width)]),
             size=torch.as_tensor([int(height), int(width)]),
-            iscrowd=torch.zeros(len(data.ground_truth.detections), dtype=torch.uint8),
-            coco_id=torch.as_tensor([data.coco_id], dtype=torch.int64)
+            iscrowd=torch.zeros(len(data["annotations"]), dtype=torch.uint8)
         )
 
-        return data.filepath, target
+        return data["file_name"], target
+
 
     def __getitem__(self, index) -> tuple[Union[Image.Image, Any], OWDatasetDict]:
         """
@@ -365,31 +404,8 @@ class FOOWDetection(VisionDataset):
         Returns:
             tuple: (image, target) where target is a dictionary of the XML tree.
         
-        image_set = self.transforms[0]
-        img = Image.open(self.images[index]).convert('RGB')
-        target, instances = self.load_instances(self.imgids[index])
-        if 'train' in image_set:
-            instances = self.remove_prev_class_and_unk_instances(instances)
-        elif 'test' in image_set:
-            instances = self.label_known_class_and_unknown(instances)
-        elif 'ft' in image_set:
-            instances = self.remove_unknown_instances(instances)
-
-        w, h = map(target['annotation']['size'].get, ['width', 'height'])
-        target = dict(
-            image_id=torch.tensor([self.imgids[index]], dtype=torch.int64),
-            labels=torch.tensor([i['category_id'] for i in instances], dtype=torch.int64),
-            area=torch.tensor([i['area'] for i in instances], dtype=torch.float32),
-            boxes=torch.as_tensor([i['bbox'] for i in instances], dtype=torch.float32),
-            orig_size=torch.as_tensor([int(h), int(w)]),
-            size=torch.as_tensor([int(h), int(w)]),
-            iscrowd=torch.zeros(len(instances), dtype=torch.uint8)
-        )
-
-        if self.transforms[-1] is not None:
-            img, target = self.transforms[-1](img, target)
         """
-        if index >= len(self.dataset_ids):
+        if index >= len(self.data_dicts):
             return None
         
         img_path, target = self.get_raw(index)
@@ -400,4 +416,4 @@ class FOOWDetection(VisionDataset):
         return img, target
 
     def __len__(self):
-        return len(self.dataset_ids)
+        return len(self.data_dicts)

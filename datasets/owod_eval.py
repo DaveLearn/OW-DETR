@@ -10,7 +10,7 @@ import torch
 import json
 import os
 
-from datasets.torchvision_datasets.open_world import FOOWDetection, OWDatasetDict, OWDetection
+from datasets.torchvision_datasets.open_world import JSONOWDetection, OWDatasetDict, OWDetection
 from util.misc import all_gather, get_sha
 
 class OWODEvaluator():
@@ -24,7 +24,7 @@ class OWODEvaluator():
     official API.
     """
 
-    def __init__(self, test_ds: Union[FOOWDetection, OWDetection], args: Any):
+    def __init__(self, test_ds: Union[JSONOWDetection, OWDetection], args: Any):
         """
         Args:
             dataset_name (str): name of the dataset, e.g., "voc_2007_test"
