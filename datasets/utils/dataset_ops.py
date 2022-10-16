@@ -24,6 +24,7 @@ def remap_category_ids(
                 )
     return {"dataset": remapped, "class_names": class_name_idx}
 
+    
 
 def save_dataset_to_disk(dataset: DetectronJsonDataset, filepath):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)

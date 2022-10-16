@@ -14,17 +14,21 @@ import random
 import time
 from pathlib import Path
 import os
+from typing import cast
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import datasets
+from datasets.utils.class_minimum_sampling import class_minimum_sample
+from datasets.utils.dataset_ops import load_dataset_from_disk, save_dataset_to_disk
+from datasets.utils.dataset_types import DetectronJsonDataset
 
 import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
 from datasets.coco import make_coco_transforms
 from datasets.torchvision_datasets.open_world import JSONOWDetection, OWDetection
-from engine import evaluate, train_one_epoch, viz
+from engine import build_hard_mode_dataset, evaluate, train_one_epoch, viz
 from models import build_model
 
 
@@ -130,6 +134,10 @@ def get_args_parser():
     parser.add_argument('--dataset', default='owod')
     parser.add_argument('--data_root', default='../data/OWDETR', type=str)
     parser.add_argument('--bbox_thresh', default=0.3, type=float)
+
+    ## Hard Mode
+    parser.add_argument('--build_hard_mode_datasets', default=False, action='store_true')
+    parser.add_argument('--ft_samples', default=100, type=int, help="number of samples per class for fine tune dataset")
     return parser
 
 def main(args):
@@ -251,6 +259,45 @@ def main(args):
             print('Missing Keys: {}'.format(missing_keys))
         if len(unexpected_keys) > 0:
             print('Unexpected Keys: {}'.format(unexpected_keys))
+
+        if args.build_hard_mode_datasets:
+            base_ds = cast(OWDetection, base_ds)
+            if "t1" in args.test_set:
+                filtered_ds:DetectronJsonDataset = { "dataset": [base_ds.get_detectron(i) for i in range(0, len(base_ds))], "class_names": list(base_ds.CLASS_NAMES)}
+            else:
+                filtered_ds = build_hard_mode_dataset(model, postprocessors, data_loader_val, base_ds, device, args)
+
+            filtered_ds_path = os.path.join(args.output_dir, f"{args.test_set}_filtered.json")
+            save_dataset_to_disk(filtered_ds, filtered_ds_path)
+            print(f"Saved filtered dataset to {filtered_ds_path}")
+
+            ft_name = args.test_set.replace("_train", "_ft")
+            ft_path = os.path.join(args.output_dir, f"{ft_name}.json")
+            
+            print(f"Building ft dataset ({args.ft_samples}) from filtered data ")
+            ft_ds = class_minimum_sample(filtered_ds, args.ft_samples)
+            
+            previous_ft=None
+            if "t4" in ft_name:
+                previous_ft="t3_ft"
+            if "t3" in ft_name:
+                previous_ft="t2_ft"
+            if "t2" in ft_name:
+                previous_ft="t1_ft"
+            
+            if previous_ft is not None:
+                # combine with previous ft dataset
+                prev_ft_path = os.path.join(args.output_dir, f"{previous_ft}.json")
+                prev_ft_ds = load_dataset_from_disk(prev_ft_path)
+                print(f"Appending {len(prev_ft_ds['dataset'])} items from previous ft dataset {prev_ft_path}")
+                ft_ds['dataset'].extend(prev_ft_ds['dataset'])
+
+            save_dataset_to_disk(ft_ds, ft_path)
+            print(f"Saved ft dataset to {ft_path}")
+
+            return
+
+        
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             import copy
             p_groups = copy.deepcopy(optimizer.param_groups)
@@ -343,7 +390,11 @@ def get_datasets(args):
         train_set = args.train_set
         test_set = args.test_set
         dataset_train = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.train_set], transforms=make_coco_transforms(args.train_set))
-        dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=make_coco_transforms(args.test_set))
+        
+        test_transforms = make_coco_transforms('test')
+        if args.build_hard_mode_datasets:
+            test_transforms[0] = ['train']
+        dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=test_transforms)
     elif args.dataset == 'owdetr':
         from datasets.owdetr_datasets import register_owdetr_datasets
         register_owdetr_datasets()

@@ -17,6 +17,7 @@ from typing import Iterable
  
 import torch
 from datasets.owod_eval import OWODEvaluator
+from datasets.utils.dataset_types import DetectronDict, DetectronJsonDataset
 import util.misc as utils
 from datasets.coco_eval import CocoEvaluator
 from datasets.open_world_eval import OWEvaluator
@@ -24,6 +25,11 @@ from datasets.panoptic_eval import PanopticEvaluator
 from datasets.data_prefetcher import data_prefetcher
 from util.box_ops import box_xyxy_to_cxcywh, box_cxcywh_to_xyxy
 from util.plot_utils import plot_prediction
+
+from detectron2.modeling.matcher import Matcher
+from detectron2.structures.boxes import pairwise_iou
+from detectron2.structures import Boxes
+
 import matplotlib.pyplot as plt
 from copy import deepcopy
  
@@ -198,3 +204,57 @@ def viz(model, criterion, postprocessors, data_loader, base_ds, device, output_d
             ax[i].set_axis_off()
  
         plt.savefig(os.path.join(output_dir, f'img_{int(targets[0]["image_id"][0])}.jpg'))
+
+
+def build_hard_mode_dataset(model, postprocessors, data_loader, base_ds, device, args) -> DetectronJsonDataset:
+    model.eval()
+    header = 'Filter Unknowns:'
+    metric_logger = utils.MetricLogger(delimiter="  ")
+
+    matcher = Matcher([0.5], [-1, 1], allow_low_quality_matches=False)
+
+    original_annotations = 0
+    kept_annotations = 0
+
+    filtered_dataset: list[DetectronDict] = []
+
+    for samples, targets in metric_logger.log_every(data_loader, 10, header):
+        samples = samples.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        outputs = model(samples)
+
+        orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+        results = postprocessors['bbox'](outputs, orig_target_sizes)
+        for target, output in zip(targets, results):
+            ds_idx = base_ds.imgids.index(target['image_id'].item())
+            item = base_ds.get_detectron(ds_idx)  # 
+            gt_boxes = Boxes(torch.tensor([obj["bbox"] for obj in item["annotations"]]).to(device))
+            unk_idx = args.num_classes-1
+            unk_boxes = Boxes(output['boxes'][output['labels'] == unk_idx])
+
+
+            # for each target instance, we find best matching unknown in output and use its bounding box or remove instance if we didn't detect it as unknown
+            # Code uses detectron to match OLNGMM hard mode logic
+
+            match_quality_matrix = pairwise_iou(unk_boxes, gt_boxes) #  M x N ious
+            matched_idx, matched_labels = matcher(match_quality_matrix) # returns index in M for each N
+
+            new_annotations = []
+            for idx, anno in enumerate(item["annotations"]):
+                if matched_labels[idx] == 1:
+                    pred_box = unk_boxes[matched_idx[idx].item()]
+                    new_anno = anno.copy()
+                    new_anno["bbox"] = pred_box.tensor[0].tolist() # we use the bounding box of the unknown for extra-hard-mode
+                    new_annotations.append(new_anno)
+            
+            if len(new_annotations) > 0:
+                new_item = item.copy()
+                new_item["annotations"] = new_annotations
+                filtered_dataset.append(new_item)
+
+            original_annotations = original_annotations + len(item["annotations"])
+            kept_annotations = kept_annotations + len(new_annotations)
+
+    print(f"Filtered {original_annotations} annotations. {kept_annotations} we matched ({(kept_annotations * 100)/original_annotations}%)")
+
+    return { "dataset": filtered_dataset, "class_names": list(base_ds.CLASS_NAMES) }
