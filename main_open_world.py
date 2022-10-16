@@ -138,6 +138,7 @@ def get_args_parser():
     ## Hard Mode
     parser.add_argument('--build_hard_mode_datasets', default=False, action='store_true')
     parser.add_argument('--ft_samples', default=100, type=int, help="number of samples per class for fine tune dataset")
+    parser.add_argument('--json_data_root', default='./exps/hm_datasets', type=str, help="path to json datasets")
     return parser
 
 def main(args):
@@ -396,10 +397,10 @@ def get_datasets(args):
             test_transforms[0] = ['train']
         dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=test_transforms)
     elif args.dataset == 'owdetr':
-        from datasets.owdetr_datasets import register_owdetr_datasets
-        register_owdetr_datasets()
-        dataset_train = JSONOWDetection(args.train_set, transforms=make_coco_transforms("owdetr_train"))
-        dataset_val = JSONOWDetection(args.test_set, transforms=make_coco_transforms("owdetr_test"))
+        # load from json for training
+        dataset_train = JSONOWDetection(args.json_data_root, args.train_set, transforms=make_coco_transforms("owdetr_train"))
+        # but stay as original for test since it is not filtered
+        dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=make_coco_transforms("owdetr_test"))
     else:
         raise ValueError("Wrong dataset name")
 
