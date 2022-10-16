@@ -18,7 +18,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import datasets
-from datasets.owdetr_datasets import register_owdetr_datasets
+
 import util.misc as utils
 import datasets.samplers as samplers
 from datasets import build_dataset, get_coco_api_from_dataset
@@ -345,6 +345,7 @@ def get_datasets(args):
         dataset_train = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.train_set], transforms=make_coco_transforms(args.train_set))
         dataset_val = OWDetection(args, args.owod_path, ["2007"], image_sets=[args.test_set], transforms=make_coco_transforms(args.test_set))
     elif args.dataset == 'owdetr':
+        from datasets.owdetr_datasets import register_owdetr_datasets
         register_owdetr_datasets()
         dataset_train = FOOWDetection(args.train_set, transforms=make_coco_transforms("owdetr_train"))
         dataset_val = FOOWDetection(args.test_set, transforms=make_coco_transforms("owdetr_test"))
