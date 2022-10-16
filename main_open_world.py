@@ -269,8 +269,9 @@ def main(args):
                 filtered_ds = build_hard_mode_dataset(model, postprocessors, data_loader_val, base_ds, device, args)
 
             filtered_ds_path = os.path.join(args.output_dir, f"{args.test_set}_filtered.json")
-            save_dataset_to_disk(filtered_ds, filtered_ds_path)
-            print(f"Saved filtered dataset to {filtered_ds_path}")
+            if utils.is_main_process():
+                save_dataset_to_disk(filtered_ds, filtered_ds_path)
+                print(f"Saved filtered dataset to {filtered_ds_path}")
 
             ft_name = args.test_set.replace("_train", "_ft")
             ft_path = os.path.join(args.output_dir, f"{ft_name}.json")
@@ -293,8 +294,9 @@ def main(args):
                 print(f"Appending {len(prev_ft_ds['dataset'])} items from previous ft dataset {prev_ft_path}")
                 ft_ds['dataset'].extend(prev_ft_ds['dataset'])
 
-            save_dataset_to_disk(ft_ds, ft_path)
-            print(f"Saved ft dataset to {ft_path}")
+            if utils.is_main_process():
+                save_dataset_to_disk(ft_ds, ft_path)
+                print(f"Saved ft dataset to {ft_path}")
 
             return
 

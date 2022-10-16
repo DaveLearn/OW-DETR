@@ -255,6 +255,10 @@ def build_hard_mode_dataset(model, postprocessors, data_loader, base_ds, device,
             original_annotations = original_annotations + len(item["annotations"])
             kept_annotations = kept_annotations + len(new_annotations)
 
-    print(f"Filtered {original_annotations} annotations. {kept_annotations} we matched ({(kept_annotations * 100)/original_annotations}%)")
+    all_filtered_items = [item for sublist in utils.all_gather(filtered_dataset) for item in sublist]
+    all_original = sum(utils.all_gather(original_annotations))
+    all_kept = sum(utils.all_gather(kept_annotations))
+    print(f"Locally processed {original_annotations} annotations and kept {kept_annotations} resulting in {len(filtered_dataset)} images")
+    print(f"Filtered {all_original} annotations. {all_kept} we matched ({(all_kept * 100)/all_original}%) -  {len(all_filtered_items)} images")
 
-    return { "dataset": filtered_dataset, "class_names": list(base_ds.CLASS_NAMES) }
+    return { "dataset": all_filtered_items, "class_names": list(base_ds.CLASS_NAMES) }
