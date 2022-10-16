@@ -7,7 +7,8 @@ dependencies:
   # Base pytorch env
   - python
   - cudatoolkit=11.1
-  
+  - gcc=10.4.0
+  - gxx=10.4.0  
   # Detectron2 - not actually used but brings in the right versions of pytorch etc
   - detectron2=0.6
   - torchvision=0.10.0
