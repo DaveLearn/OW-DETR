@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# conda activate owdetr || exit 1
 export LR=0.7e-04
 export FT_LR=0.7e-5
 export BACKBONE_LR=0.7e-05
