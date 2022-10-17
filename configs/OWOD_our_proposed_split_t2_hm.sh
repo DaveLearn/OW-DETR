@@ -28,6 +28,7 @@ if [[ ! -f exps/hm_datasets/t2_ft.json ]]; then
    exit 1
 fi
 
+if [[ ! -f "exps/OWDETR_t2/checkpoint0049.pth" ]]; then
 python -u main_open_world.py \
     --output_dir ${EXP_DIR} --dataset owdetr --num_queries 100 --eval_every 5 \
     --PREV_INTRODUCED_CLS 19 --CUR_INTRODUCED_CLS 21 --data_root './data/OWDETR' --json_data_root="${DS_DIR}" --train_set 't2_train_filtered' --test_set 'test' --num_classes 81 \
@@ -37,6 +38,7 @@ python -u main_open_world.py \
     ${PY_ARGS}  2>&1 | tee -a ${EXP_DIR}/run_log.txt
 
 test $? -ne 0 && exit 1
+fi
 
 EXP_DIR=exps/OWDETR_t2_ft
 PY_ARGS=${@:1}
