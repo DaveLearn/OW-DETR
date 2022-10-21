@@ -149,6 +149,7 @@ class OWODEvaluator():
 
        
         aps = defaultdict(list)  # iou -> ap per class
+        aps07 = defaultdict(list) # iou -> ap voc2007 metric per class
 
         # Extra owod stats
         recs = defaultdict(list)  # recall
@@ -169,14 +170,14 @@ class OWODEvaluator():
 
             # for thresh in range(50, 100, 5):
             thresh = 50 # OWOD eval only does threshold of 50
-            rec, prec, ap, unk_det_as_known, num_unk, tp, fp, fp_open_set, fp_k = voc_eval(
+            rec, prec, ap, unk_det_as_known, num_unk, tp, fp, fp_open_set, fp_k, ap07 = voc_eval(
                 lines_by_class,
                 instances,
                 cls_name,
-                ovthresh=thresh / 100.0,
-                use_07_metric=True,
+                ovthresh=thresh / 100.0              
             )
             aps[thresh].append(ap * 100)
+            aps07[thresh].append(ap07 * 100)
             unk_det_as_knowns[thresh].append(unk_det_as_known)
             num_unks[thresh].append(num_unk)
             all_precs[thresh].append(prec)
@@ -254,11 +255,28 @@ class OWODEvaluator():
         else:
             ucp = 0.0 # 0% of our non existent guesses lined up with ground truth
 
+        prev_known = self.prev_intro_cls
 
         ret = {}
         # mAP = {iou: np.mean(x) for iou, x in aps.items()}
         ret["git-sha"] = get_sha()
         ret["AP50-Known"] = np.mean(aps[50][0:self.num_seen_classes])
+        ret["AP50-07-Known"] = np.mean(aps07[50][0:self.num_seen_classes])
+
+        ret["Prev-Known-Classes"] = prev_known
+        if prev_known is not None and prev_known > 0:
+            ret["AP50-Prev"] = np.mean(aps[50][0:prev_known])
+            ret["AP50-Curr"] = np.mean(aps[50][prev_known:self.num_seen_classes])
+            ret["AP50-07-Prev"] = np.mean(aps07[50][0:prev_known])
+            ret["AP50-07-Curr"] = np.mean(aps07[50][prev_known:self.num_seen_classes])
+        else:
+            ret["AP50-Prev"] = 0
+            ret["AP50-Curr"] = ret["AP50-Known"]
+            ret["AP50-07-Prev"] = 0
+            ret["AP50-07-Curr"] = ret["AP50-07-Known"]
+
+        ret["F1-i"] = (2 * ret["AP50-Prev"] * ret["AP50-Curr"]) / (ret["AP50-Prev"] + ret["AP50-Curr"])
+
         ret["WI"] = { iou: widx[50] for iou, widx in wi.items() }
         ret["ULR-UDR"] = ulr
         ret["UCR-UDP"] = ucr
@@ -275,7 +293,8 @@ class OWODEvaluator():
         ret["AP50"] = aps[50]
         ret["Precision50"] = precs[50]
         ret["Recall50"] = recs[50]
-        ret["Summary"] = f" AP Known: {ret['AP50-Known']:.2f}, URec: {recs[50][self.unknown_class_index]:.2f}, ULR/UCR(UDR/UDP): {udr:.2f} / {udp:.2f},  UPre: {precs[50][self.unknown_class_index]:.2f}, ULP/UCP: {ulp:.2f} / {ucp:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}"
+        ret["Summary"] = f"AP Known (prev/curr): {ret['AP50-Known']:.2f} ({ret['AP50-Prev']:.2f}/{ret['AP50-Curr']:.2f}), F1-i: {ret['F1-i']:.2f}, URec: {recs[50][0]:.2f}, UPre: {precs[50][0]:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}, AP Known 07 (prev/curr): {ret['AP50-07-Known']:.2f} ({ret['AP50-07-Prev']:.2f}/{ret['AP50-07-Curr']:.2f})"
+        # ret["Summary"] = f" AP Known: {ret['AP50-Known']:.2f}, URec: {recs[50][self.unknown_class_index]:.2f}, ULR/UCR(UDR/UDP): {udr:.2f} / {udp:.2f},  UPre: {precs[50][self.unknown_class_index]:.2f}, ULP/UCP: {ulp:.2f} / {ucp:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}"
         self.summary = ret
 
     def summarize(self):
@@ -335,7 +354,7 @@ def voc_ap(rec: list[float], prec: list[float], use_07_metric=False):
 
 
 
-def voc_eval(detlines, recs, classname, ovthresh=0.5, use_07_metric=False):
+def voc_eval(detlines, recs, classname, ovthresh=0.5):
     """rec, prec, ap = voc_eval(detpath,
                                 dataset_name,
                                 classname,
@@ -482,8 +501,8 @@ def voc_eval(detlines, recs, classname, ovthresh=0.5, use_07_metric=False):
     # avoid divide by zero in case the first detection matches a difficult
     # ground truth
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-    ap = voc_ap(cast(list[float], rec), cast(list[float], prec), use_07_metric)
-
+    ap = voc_ap(cast(list[float], rec), cast(list[float], prec), use_07_metric=False)
+    ap07 = voc_ap(cast(list[float], rec), cast(list[float], prec), use_07_metric=True) # report 07 to match owdetr eval implementation
     '''
     Computing Absolute Open-Set Error (A-OSE) and Wilderness Impact (WI)
                                     ===========    
@@ -504,7 +523,7 @@ def voc_eval(detlines, recs, classname, ovthresh=0.5, use_07_metric=False):
         unknown_class_recs[imagename] = {"bbox": bbox, "difficult": difficult, "det": det}
 
     if classname == 'unknown':
-        return rec, prec, ap, 0, n_unk, tp, fp, None, fp_known
+        return rec, prec, ap, 0, n_unk, tp, fp, None, fp_known, ap07
 
     # Go down each detection and see if it has an overlap with an unknown object.
     # If so, it is an unknown object that was classified as known.
@@ -549,7 +568,7 @@ def voc_eval(detlines, recs, classname, ovthresh=0.5, use_07_metric=False):
     #tp_plus_fp_closed_set = tp+fp
     fp_open_set = np.cumsum(is_unk)
 
-    return rec, prec, ap, is_unk_sum, n_unk, tp, fp, fp_open_set, fp_known
+    return rec, prec, ap, is_unk_sum, n_unk, tp, fp, fp_open_set, fp_known, ap07
 
 
    
