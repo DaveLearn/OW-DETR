@@ -293,7 +293,7 @@ class OWODEvaluator():
         ret["AP50"] = aps[50]
         ret["Precision50"] = precs[50]
         ret["Recall50"] = recs[50]
-        ret["Summary"] = f"AP Known (prev/curr): {ret['AP50-Known']:.2f} ({ret['AP50-Prev']:.2f}/{ret['AP50-Curr']:.2f}), F1-i: {ret['F1-i']:.2f}, URec: {recs[50][0]:.2f}, UPre: {precs[50][0]:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}, AP Known 07 (prev/curr): {ret['AP50-07-Known']:.2f} ({ret['AP50-07-Prev']:.2f}/{ret['AP50-07-Curr']:.2f})"
+        ret["Summary"] = f"AP Known (prev/curr): {ret['AP50-Known']:.2f} ({ret['AP50-Prev']:.2f}/{ret['AP50-Curr']:.2f}), F1-i: {ret['F1-i']:.2f}, URec: {recs[50][self.unknown_class_index]:.2f}, UPre: {precs[50][self.unknown_class_index]:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}, AP Known 07 (prev/curr): {ret['AP50-07-Known']:.2f} ({ret['AP50-07-Prev']:.2f}/{ret['AP50-07-Curr']:.2f})"
         # ret["Summary"] = f" AP Known: {ret['AP50-Known']:.2f}, URec: {recs[50][self.unknown_class_index]:.2f}, ULR/UCR(UDR/UDP): {udr:.2f} / {udp:.2f},  UPre: {precs[50][self.unknown_class_index]:.2f}, ULP/UCP: {ulp:.2f} / {ucp:.2f}, WI 0.8: {wi[0.8][50]:.5f}, A-OSE: {ret['A-OSE']}"
         self.summary = ret
 
